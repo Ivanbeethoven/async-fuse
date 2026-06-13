@@ -2458,12 +2458,25 @@ pub(super) async fn handle_notify_reply_inline<FS: Filesystem + Send + Sync + 's
 }
 
 #[cfg(target_os = "macos")]
-#[cfg(target_os = "macos")]
 pub(super) async fn handle_setvolname_inline<FS: Filesystem + Send + Sync + 'static>(
-    _ctx: &DispatchCtx<FS>,
-    _item: WorkItem,
+    ctx: &DispatchCtx<FS>,
+    item: WorkItem,
 ) {
-    // macOS specific, not yet implemented
+    let name = match get_first_null_position(&item.data) {
+        None => OsString::from_vec(item.data.to_vec()),
+        Some(idx) => OsString::from_vec(item.data[..idx].to_vec()),
+    };
+
+    debug!(unique = item.unique, ?name, "setvolname (worker)");
+
+    let resp_value = if let Err(err) = ctx.fs.setvolname(Request::from(&item), &name).await {
+        err.into()
+    } else {
+        0
+    };
+
+    let data = reply_error_in_worker(resp_value.into(), item.unique).expect("serialize out_header");
+    let _ = ctx.resp_for(item.unique).unbounded_send(Either::Left(data));
 }
 
 pub(super) async fn handle_ioctl_inline<FS: Filesystem + Send + Sync + 'static>(
@@ -2544,16 +2557,118 @@ pub(super) async fn handle_ioctl_inline<FS: Filesystem + Send + Sync + 'static>(
 
 #[cfg(target_os = "macos")]
 pub(super) async fn handle_getxtimes_inline<FS: Filesystem + Send + Sync + 'static>(
-    _ctx: &DispatchCtx<FS>,
-    _item: WorkItem,
+    ctx: &DispatchCtx<FS>,
+    item: WorkItem,
 ) {
-    // macOS specific, not yet implemented
+    debug!(
+        unique = item.unique,
+        inode = item.in_header.nodeid,
+        "getxtimes (worker)"
+    );
+
+    let data = match ctx
+        .fs
+        .getxtimes(Request::from(&item), item.in_header.nodeid)
+        .await
+    {
+        Err(err) => reply_error_in_worker(err, item.unique).expect("serialize out_header"),
+        Ok(times) => {
+            let xtimes_out: fuse_getxtimes_out = times.into();
+            let out_header = fuse_out_header {
+                len: (FUSE_OUT_HEADER_SIZE + FUSE_GETXTIMES_OUT_SIZE) as u32,
+                error: 0,
+                unique: item.unique,
+            };
+            let mut data = Vec::with_capacity(FUSE_OUT_HEADER_SIZE + FUSE_GETXTIMES_OUT_SIZE);
+            get_bincode_config()
+                .serialize_into(&mut data, &out_header)
+                .expect("serialize header");
+            get_bincode_config()
+                .serialize_into(&mut data, &xtimes_out)
+                .expect("serialize getxtimes_out");
+            data
+        }
+    };
+
+    let _ = ctx.resp_for(item.unique).unbounded_send(Either::Left(data));
 }
 
 #[cfg(target_os = "macos")]
 pub(super) async fn handle_exchange_inline<FS: Filesystem + Send + Sync + 'static>(
-    _ctx: &DispatchCtx<FS>,
-    _item: WorkItem,
+    ctx: &DispatchCtx<FS>,
+    item: WorkItem,
 ) {
-    // macOS specific, not yet implemented
+    let exchange_in = match get_bincode_config().deserialize::<fuse_exchange_in>(&item.data) {
+        Err(err) => {
+            debug!(
+                unique = item.unique,
+                "deserialize fuse_exchange_in failed {}", err
+            );
+            let data = reply_error_in_worker(libc::EINVAL.into(), item.unique)
+                .expect("serialize out_header");
+            let _ = ctx.resp_for(item.unique).unbounded_send(Either::Left(data));
+            return;
+        }
+        Ok(v) => v,
+    };
+
+    let mut data = &item.data[FUSE_EXCHANGE_IN_SIZE..];
+    let (oldname, first_null_index) = match get_first_null_position(data) {
+        None => {
+            debug!(
+                unique = item.unique,
+                "fuse_exchange_in body doesn't have null (worker)"
+            );
+            let data = reply_error_in_worker(libc::EINVAL.into(), item.unique)
+                .expect("serialize out_header");
+            let _ = ctx.resp_for(item.unique).unbounded_send(Either::Left(data));
+            return;
+        }
+        Some(index) => (OsString::from_vec(data[..index].to_vec()), index),
+    };
+
+    data = &data[first_null_index + 1..];
+    let newname = match get_first_null_position(data) {
+        None => {
+            debug!(
+                unique = item.unique,
+                "fuse_exchange_in body doesn't have second null (worker)"
+            );
+            let data = reply_error_in_worker(libc::EINVAL.into(), item.unique)
+                .expect("serialize out_header");
+            let _ = ctx.resp_for(item.unique).unbounded_send(Either::Left(data));
+            return;
+        }
+        Some(index) => OsString::from_vec(data[..index].to_vec()),
+    };
+
+    debug!(
+        unique = item.unique,
+        olddir = exchange_in.olddir,
+        ?oldname,
+        newdir = exchange_in.newdir,
+        ?newname,
+        options = exchange_in.options,
+        "exchange (worker)"
+    );
+
+    let resp_value = if let Err(err) = ctx
+        .fs
+        .exchange(
+            Request::from(&item),
+            exchange_in.olddir,
+            &oldname,
+            exchange_in.newdir,
+            &newname,
+            exchange_in.options,
+        )
+        .await
+    {
+        err.into()
+    } else {
+        0
+    };
+
+    let data = reply_error_in_worker(resp_value.into(), item.unique).expect("serialize out_header");
+    let _ = ctx.resp_for(item.unique).unbounded_send(Either::Left(data));
 }

@@ -38,6 +38,11 @@ compile_error!(
     "asyncfuse async-io-runtime cannot be enabled together with tokio-runtime or io-uring-runtime; use --no-default-features for async-io-runtime"
 );
 
+#[cfg(all(not(target_os = "linux"), feature = "io-uring-runtime"))]
+compile_error!(
+    "asyncfuse io-uring-runtime is Linux-only; use tokio-runtime or async-io-runtime on other platforms"
+);
+
 #[cfg(any(
     all(target_os = "linux", feature = "unprivileged"),
     target_os = "macos"

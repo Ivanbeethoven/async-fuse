@@ -12,23 +12,23 @@ use nix::sys::socket::{self, ControlMessageOwned, MsgFlags};
 
 #[cfg(all(not(feature = "tokio-runtime"), feature = "async-io-runtime"))]
 pub use async_io::FuseConnection;
-#[cfg(feature = "io-uring-runtime")]
+#[cfg(all(target_os = "linux", feature = "io-uring-runtime"))]
 pub use io_uring_conn::FuseConnection;
 #[cfg(all(
     not(feature = "async-io-runtime"),
-    not(feature = "io-uring-runtime"),
-    feature = "tokio-runtime"
+    feature = "tokio-runtime",
+    not(all(target_os = "linux", feature = "io-uring-runtime"))
 ))]
 pub use tokio::FuseConnection;
 
 #[cfg(feature = "async-io-runtime")]
 mod async_io;
-#[cfg(feature = "io-uring-runtime")]
+#[cfg(all(target_os = "linux", feature = "io-uring-runtime"))]
 mod io_uring_conn;
 #[cfg(all(
     not(feature = "async-io-runtime"),
-    not(feature = "io-uring-runtime"),
-    feature = "tokio-runtime"
+    feature = "tokio-runtime",
+    not(all(target_os = "linux", feature = "io-uring-runtime"))
 ))]
 mod tokio;
 

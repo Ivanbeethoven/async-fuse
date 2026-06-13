@@ -9,17 +9,14 @@ use std::fs::File;
 #[cfg(any(target_os = "linux", target_os = "freebsd"))]
 use std::fs::OpenOptions;
 use std::io;
-#[cfg(target_os = "macos")]
-use std::io::IoSlice;
-#[cfg(any(
-    target_os = "macos",
-    all(target_os = "linux", feature = "unprivileged")
-))]
+#[cfg(all(target_os = "linux", feature = "unprivileged"))]
 use std::io::IoSliceMut;
 use std::ops::{Deref, DerefMut};
+#[cfg(not(target_os = "macos"))]
+use std::os::fd::AsRawFd;
 #[cfg(any(target_os = "linux", target_os = "freebsd"))]
 use std::os::fd::OwnedFd;
-use std::os::fd::{AsFd, AsRawFd, BorrowedFd};
+use std::os::fd::{AsFd, BorrowedFd};
 #[cfg(any(
     target_os = "macos",
     all(target_os = "linux", feature = "unprivileged")

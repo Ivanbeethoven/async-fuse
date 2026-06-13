@@ -57,6 +57,8 @@ use futures_channel::{
     oneshot,
 };
 use futures_util::future::Either;
+#[cfg(all(not(feature = "tokio-runtime"), feature = "async-io-runtime"))]
+use futures_util::future::FutureExt;
 #[cfg(all(
     target_os = "macos",
     not(feature = "tokio-runtime"),
