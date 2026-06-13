@@ -10,7 +10,7 @@ description = "FUSE user-space library async version implementation."
 rust-version = "1.77"
 exclude = ["BUCK"]
 authors = ["rk8s-dev team"]
-repository = "https://github.com/r2cn-dev/rk8s/tree/main/project/asyncfuse"
+repository = "https://github.com/Ivanbeethoven/async-fuse"
 
 [features]
 default = ["tokio-runtime", "unprivileged"]

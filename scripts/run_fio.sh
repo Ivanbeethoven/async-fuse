@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-MOUNTPOINT=${1:-/tmp/rfuse-bench}
+MOUNTPOINT=${1:-/tmp/asyncfuse-bench}
 FILE_COUNT=${FILE_COUNT:-10000}
 FILE_SIZE=${FILE_SIZE:-131072}  # 128KB per file
 WORKERS=${WORKERS:-16}  # More workers for high concurrency
@@ -74,7 +74,7 @@ echo "Running fio against $MOUNTPOINT ..."
 echo "Configuration: numjobs=$NUMJOBS, iodepth=$IODEPTH, workers=$WORKERS, max_bg=$MAX_BG"
 
 # Multi-threaded concurrent test
-fio --name=rfuse-multithread \
+fio --name=asyncfuse-multithread \
   --directory="$MOUNTPOINT" \
   --rw=randrw \
   --rwmixread=70 \
