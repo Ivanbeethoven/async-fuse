@@ -8,7 +8,7 @@ https://crates.io/crates/asyncfuse)
 [![Documentation](https://docs.rs/asyncfuse/badge.svg)](
 https://docs.rs/asyncfuse)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](
-https://github.com/Ivanbeethoven/async-fuse)
+https://github.com/brewfs/async-fuse)
 
 ## feature
 
